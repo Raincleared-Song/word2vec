@@ -29,7 +29,7 @@ class SkipGram(nn.Module):
 
         # negative sampling
         neg_score = torch.bmm(neg_v_embedding, w_embedding.unsqueeze(2)).squeeze()
-        neg_score = torch.clamp(neg_score, min=-10, max=10,)
+        neg_score = torch.clamp(neg_score, min=-10, max=10)
         neg_score = - torch.sum(F.logsigmoid(- neg_score), dim=1)
 
         loss = torch.mean(context_score + neg_score)

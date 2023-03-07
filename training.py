@@ -17,6 +17,7 @@ global_loader_generator = torch.Generator()
 
 
 def init_all():
+    os.makedirs(Config.output_path, exist_ok=True)
     shutil.copy('config.py', os.path.join(Config.output_path, 'config.py'))
     global global_loader_generator
     seed = Config.seed
@@ -72,6 +73,7 @@ def train():
     print('zero shot score:', zs_res)
 
     ave_losses, correlations = [], []
+    max_epoch, max_res = -1, 0.
     for epoch in range(Config.epoch_number):
         print('training epoch:', epoch)
         optimizer = optim_cls(model.parameters(), lr=Config.init_learning_rate)
@@ -97,6 +99,14 @@ def train():
         save_json(ave_losses, os.path.join(Config.output_path, 'ave_losses.json'))
         eval_score = evaluate(corpus.vocab2id, model.embedding.weight.cpu().detach().numpy())
         correlations.append(eval_score)
+        if eval_score > max_res:
+            max_epoch, max_res = epoch, eval_score
         save_json(correlations, os.path.join(Config.output_path, 'eval_results.json'))
 
         print(f'finished epoch {epoch}: loss {ave_loss}, result: {eval_score}')
+
+    print('max epoch:', max_epoch, 'max result:', max_res)
+    if Config.epoch_number >= 5:
+        print('epoch 5 result:', correlations[4])
+    if Config.epoch_number >= 10:
+        print('epoch 10 result:', correlations[9])
