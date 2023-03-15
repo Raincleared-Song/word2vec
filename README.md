@@ -5,6 +5,8 @@ A PyTorch implementation of Word2Vec with evaluation on WordSim-353.
 - SkipGram Model
 - Negative Sampling
 - Sub-Sampling
+- Soft Sliding Window
+- Stopword Removal
 - Cosine Annealing Learning Rate Scheduler
 - Hyper-parameters can be modified in `config.py`
 - Run `main.py` for both training and evaluation
