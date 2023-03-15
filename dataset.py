@@ -1,3 +1,4 @@
+import nltk
 import torch
 import numpy as np
 from config import Config
@@ -21,6 +22,13 @@ class Corpus(Dataset):
         with open(self.input_file) as fin:
             text = fin.read().strip()
         tokens = text.split()
+        if Config.remove_stopwords:
+            try:
+                stops = set(nltk.corpus.stopwords.words('english'))
+            except LookupError:
+                nltk.download('stopwords')
+                stops = set(nltk.corpus.stopwords.words('english'))
+            tokens = [token for token in tokens if token not in stops]
         for token in tokens:
             if token not in self.vocab2id:
                 self.vocab2id[token] = len(self.id2vocab)
@@ -36,7 +44,8 @@ class Corpus(Dataset):
         norm = np.sum(frequencies ** Config.neg_pow)
         for token, freq in self.vocab2freq.items():
             freq /= self.total_word_count
-            self.id2neg[self.vocab2id[token]] = freq ** Config.neg_pow / norm
+            self.id2neg[self.vocab2id[token]] = (freq ** Config.neg_pow / norm) \
+                if Config.use_neg_prob else (1. / len(self.id2neg))
             self.vocab2dis[token] = np.sqrt(Config.discard_t / freq) + Config.discard_t / freq
 
         neg_count = np.round(np.array(self.id2neg) * Config.neg_table_size)
@@ -45,7 +54,8 @@ class Corpus(Dataset):
         self.neg_word_ls = np.array(self.neg_word_ls)
         np.random.shuffle(self.neg_word_ls)
 
-        self.trimmed_word_ids = [self.vocab2id[word] for word in tokens if np.random.random() < self.vocab2dis[word]]
+        self.trimmed_word_ids = [self.vocab2id[word] for word in tokens
+                                 if not Config.discard_words or np.random.random() < self.vocab2dis[word]]
         print(len(tokens), len(self.trimmed_word_ids))  # 17005207 9695403
 
     def negative_sampling(self, target: int, size: int):
@@ -67,7 +77,11 @@ class Corpus(Dataset):
     def __getitem__(self, item):
         target_id, word_ids = self.trimmed_word_ids[item], self.trimmed_word_ids
         batch = []
-        for wid in word_ids[max(0, item - Config.window_size):(item + Config.window_size)]:
+        if Config.soft_slide_max == -1:
+            window_size = Config.window_size
+        else:
+            window_size = np.random.randint(1, Config.soft_slide_max + 1)
+        for wid in word_ids[max(0, item - window_size):(item + window_size)]:
             if wid != target_id:
                 batch.append((target_id, wid, self.negative_sampling(target_id, Config.neg_count)))
         return batch
